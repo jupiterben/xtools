@@ -124,7 +124,7 @@ jobs:
       - name: Require all platforms and create checksums
         run: node scripts/release/checksums.mjs
       - name: Publish complete release
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
         with:
