@@ -15,7 +15,7 @@
     "@xtools/tool-manifest": "workspace:*",
     "@xtools/tool-sdk": "workspace:*",
     "idb": "^8.0.3",
-    "lucide-svelte": "^0.468.0",
+    "lucide-svelte": "^1.0.1",
     "svelte": "^5.57.1"
   },
   "devDependencies": {
