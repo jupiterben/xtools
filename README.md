@@ -125,8 +125,8 @@ pnpm test:native
 
 仓库：`jupiterben/xtools`。安装包发布在 GitHub Releases，工作流见 `.github/workflows/`。
 
-- `CI`：main、PR 或手动触发，使用 Node 24 / pnpm 12，冻结锁文件安装，检查版本、TypeScript/Svelte、单元测试、前端构建及 Playwright。
-- `Release Installers`：推送 `v*` tag 或手动指定已存在的 tag。先完成 CI，再并行构建 Windows、macOS、Linux；各平台先运行 Rust 测试与 Clippy。
+- `CI`：main、PR 或手动触发，使用 Node 24 / pnpm 12，冻结锁文件安装，检查版本、TypeScript/Svelte、单元测试、前端构建及 Playwright，然后三端运行 Rust 测试、Clippy 并构建安装包。
+- `Release Installers`：推送 `v*` tag 或手动指定已存在的 tag。复用完整 CI，下载同一次运行的三端构建产物，不重复打包。
 - 所有平台构建成功且收齐六个安装包后，统一计算 `SHA256SUMS.txt`，上传 draft release，全部上传成功才公布。当前全部发布为 **预发布版**。
 - 已公开的 Release 不覆盖原有安装包，失败重试可以恢复未公布的 draft。缺少任一平台不会发布半成品版本。
 - 只在发布汇总任务授予 `contents:write`；构建任务和 PR 没有发布权限。不需要 GitHub PAT 或服务器凭据。
