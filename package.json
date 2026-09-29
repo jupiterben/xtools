@@ -1,7 +1,7 @@
 {
   "name": "xtools-workspace",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "packageManager": "pnpm@12.5.1",
   "scripts": {
@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "desktop:dev": "pnpm --filter @xtools/desktop tauri dev",
     "desktop:build": "pnpm --filter @xtools/desktop tauri build",
+    "desktop:install": "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/build-install.ps1",
     "test:rust": "pnpm build:tools && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
     "test:native": "node scripts/native-smoke.mjs"
   },

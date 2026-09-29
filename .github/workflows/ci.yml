@@ -89,6 +89,9 @@ jobs:
           key: ${{ matrix.target }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:tools
+      - name: Check local one-click installer prerequisites
+        if: matrix.platform == 'windows'
+        run: pnpm desktop:install -CheckOnly
       - run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
       - run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
       - run: cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings

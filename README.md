@@ -4,6 +4,8 @@
 
 ## 快速启动
 
+Windows 本地可双击根目录 `build-install.cmd`，或执行 `pnpm desktop:install`，自动编译并打开安装向导。只构建不安装使用 `pnpm desktop:install -BuildOnly`；参数与环境要求见 [本地编译安装](docs/local-build.md)。
+
 开发环境：Node.js 22.12+、pnpm 12。桌面构建还需要 Rust 1.88+、Windows C++ Build Tools 和 WebView2。
 
 ```powershell

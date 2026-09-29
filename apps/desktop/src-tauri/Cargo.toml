@@ -1,6 +1,6 @@
 [package]
 name = "xtools"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local-first developer toolbox"
 authors = ["jupiterben"]
 homepage = "https://github.com/jupiterben/xtools"

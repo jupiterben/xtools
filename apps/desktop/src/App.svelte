@@ -9,6 +9,7 @@
   import ToolRunner from './components/ToolRunner.svelte';
   import Modal from './components/Modal.svelte';
   import { cachedCatalog, fetchCatalog, latestReleases, marketUrl } from './lib/market';
+  import { version as appVersion } from '../package.json';
 
   type Page = 'workspace' | 'market' | 'tasks' | 'settings';
   const pages = { workspace: '我的工具', market: '工具市场', tasks: '任务记录', settings: '设置' };
@@ -281,7 +282,7 @@
           </div></div>
           <div class="setting-row"><strong>卸载前确认</strong><label class="toggle"><input type="checkbox" checked={snapshot.settings.confirmUninstall} onchange={(event) => settings({ confirmUninstall: event.currentTarget.checked })} aria-label="卸载前确认" /><span></span></label></div>
           <div class="setting-row"><strong>工具源</strong><span class="muted">{marketUrl}</span></div>
-          <div class="setting-row"><strong>版本</strong><span class="muted" data-testid="runtime-mode">{desktopMode ? '桌面版' : '浏览器预览'} · 0.1.0</span></div>
+          <div class="setting-row"><strong>版本</strong><span class="muted" data-testid="runtime-mode">{desktopMode ? '桌面版' : '浏览器预览'} · {appVersion}</span></div>
         </section>
       {/if}
     {/if}
