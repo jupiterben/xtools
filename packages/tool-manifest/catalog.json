@@ -1,0 +1,10 @@
+[
+  { "id": "json", "name": "JSON 工作室", "subtitle": "JSON Studio", "description": "格式化、压缩与校验 JSON，让复杂数据清晰有序。", "category": "数据处理", "version": "1.0.0", "color": "amber", "tags": ["JSON", "格式化", "校验"], "permissions": [] },
+  { "id": "base64", "name": "Base64 编解码", "subtitle": "Base64 Codec", "description": "在文本与 Base64 之间转换，完整支持中文和 Unicode。", "category": "编码转换", "version": "1.0.0", "color": "blue", "tags": ["Base64", "编码", "解码"], "permissions": [] },
+  { "id": "url", "name": "URL 编解码", "subtitle": "URL Encoder", "description": "编码与解码 URL 参数，快速处理转义字符。", "category": "编码转换", "version": "1.0.0", "color": "cyan", "tags": ["URL", "转义", "参数"], "permissions": [] },
+  { "id": "timestamp", "name": "时间戳转换", "subtitle": "Timestamp Converter", "description": "Unix 时间戳与日期互转，同时查看 UTC 和本地时间。", "category": "开发辅助", "version": "1.0.0", "color": "rose", "tags": ["Unix", "日期", "时间"], "permissions": [] },
+  { "id": "uuid", "name": "UUID 生成器", "subtitle": "UUID Generator", "description": "使用安全随机数批量生成 UUID v4，随用随取。", "category": "开发辅助", "version": "1.0.0", "color": "teal", "tags": ["UUID", "随机", "标识符"], "permissions": [] },
+  { "id": "hash", "name": "哈希计算", "subtitle": "Hash Generator", "description": "计算文本的 SHA-256、SHA-384 和 SHA-512 摘要。", "category": "数据处理", "version": "1.0.0", "color": "violet", "tags": ["SHA", "摘要", "Hash"], "permissions": [] },
+  { "id": "regex", "name": "正则表达式", "subtitle": "Regex Tester", "description": "验证匹配规则，查看每一处命中及其捕获组。", "category": "文本工具", "version": "1.0.0", "color": "orange", "tags": ["RegExp", "匹配", "调试"], "permissions": [] },
+  { "id": "diff", "name": "文本差异", "subtitle": "Text Diff", "description": "逐行对比两段文本，准确定位新增与删除。", "category": "文本工具", "version": "1.0.0", "color": "green", "tags": ["Diff", "对比", "文本"], "permissions": [] }
+]

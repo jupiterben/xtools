@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "XTools",
+  "version": "0.1.0",
+  "identifier": "dev.xtools.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm -w build:tools && pnpm dev --port 1420 --strictPort",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "pnpm -w build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      { "label": "main", "title": "XTools · 开发者工具箱", "width": 1320, "height": 900, "minWidth": 760, "minHeight": 600 }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; frame-src 'self' about:; worker-src blob:; base-uri 'self'; object-src 'none'; form-action 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost http://127.0.0.1:1420 ws://127.0.0.1:1420; frame-src 'self' about:; worker-src blob:; base-uri 'self'; object-src 'none'; form-action 'none'",
+      "dangerousDisableAssetCspModification": ["script-src"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "shortDescription": "Local-first developer toolbox",
+    "category": "DeveloperTool",
+    "longDescription": "A local-first developer toolbox with a signed tool marketplace, offline utilities and a minimal workspace.",
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-"
+    }
+  }
+}

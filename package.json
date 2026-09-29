@@ -1,0 +1,23 @@
+{
+  "name": "xtools-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@12.5.1",
+  "scripts": {
+    "dev": "pnpm build:tools && pnpm --filter @xtools/desktop dev",
+    "build:tools": "pnpm --filter @xtools/tools build && node scripts/prepare-registry.mjs",
+    "build": "pnpm build:tools && pnpm --filter @xtools/desktop build",
+    "check": "pnpm --filter @xtools/desktop check && pnpm --filter @xtools/tools check",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "desktop:dev": "pnpm --filter @xtools/desktop tauri dev",
+    "desktop:build": "pnpm --filter @xtools/desktop tauri build",
+    "test:rust": "pnpm build:tools && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "test:native": "node scripts/native-smoke.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "vitest": "^4.0.0"
+  }
+}
