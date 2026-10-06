@@ -11,12 +11,17 @@
   },
   "app": {
     "windows": [
-      { "label": "main", "title": "XTools · 开发者工具箱", "width": 1320, "height": 900, "minWidth": 760, "minHeight": 600 }
+      { "label": "main", "title": "XTools · 开发者工具箱", "width": 1320, "height": 900, "minWidth": 760, "minHeight": 600, "visible": false, "backgroundColor": "#ffffff" }
     ],
     "security": {
       "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; frame-src 'self' about:; worker-src blob:; base-uri 'self'; object-src 'none'; form-action 'none'",
       "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost http://127.0.0.1:1420 ws://127.0.0.1:1420; frame-src 'self' about:; worker-src blob:; base-uri 'self'; object-src 'none'; form-action 'none'",
       "dangerousDisableAssetCspModification": ["script-src"]
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": { "schemes": ["xtools"] }
     }
   },
   "bundle": {

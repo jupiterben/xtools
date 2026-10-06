@@ -3,5 +3,5 @@
   "identifier": "main-window",
   "description": "Only the trusted main window can use basic Tauri core APIs.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "deep-link:allow-get-current"]
 }

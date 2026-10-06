@@ -21,6 +21,13 @@ pub struct InstalledTool {
     favorite: bool,
     enabled: bool,
     manifest: Option<serde_json::Value>,
+    group_id: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct ToolGroup {
+    id: String,
+    name: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -43,6 +50,7 @@ pub struct Settings {
 
 #[derive(Serialize)]
 pub struct Snapshot {
+    groups: Vec<ToolGroup>,
     installed: Vec<InstalledTool>,
     tasks: Vec<TaskRecord>,
     settings: Settings,
@@ -118,6 +126,13 @@ impl Store {
              CREATE TABLE IF NOT EXISTS tasks (
                id TEXT PRIMARY KEY, tool_id TEXT NOT NULL, action TEXT NOT NULL,
                status TEXT NOT NULL, created_at INTEGER NOT NULL, message TEXT NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS groups (
+               id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE
+             );
+             CREATE TABLE IF NOT EXISTS tool_groups (
+               tool_id TEXT PRIMARY KEY REFERENCES tools(id) ON DELETE CASCADE,
+               group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE
              );",
             )
             .map_err(|error| error.to_string())?;
@@ -170,7 +185,8 @@ impl Store {
 
     pub fn snapshot(&self) -> Result<Snapshot> {
         let mut statement = self.connection.prepare(
-            "SELECT id, version, installed_at, last_opened_at, favorite, enabled, manifest FROM tools ORDER BY installed_at, rowid",
+            "SELECT t.id, t.version, t.installed_at, t.last_opened_at, t.favorite, t.enabled, t.manifest, g.group_id
+             FROM tools t LEFT JOIN tool_groups g ON g.tool_id = t.id ORDER BY t.installed_at, t.rowid",
         ).map_err(|error| error.to_string())?;
         let installed = statement
             .query_map([], |row| {
@@ -184,6 +200,7 @@ impl Store {
                     manifest: row
                         .get::<_, Option<String>>(6)?
                         .and_then(|value| serde_json::from_str(&value).ok()),
+                    group_id: row.get(7)?,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -214,7 +231,22 @@ impl Store {
                 |row| row.get(0),
             )
             .map_err(|error| error.to_string())?;
+        let mut statement = self
+            .connection
+            .prepare("SELECT id, name FROM groups ORDER BY rowid")
+            .map_err(|e| e.to_string())?;
+        let groups = statement
+            .query_map([], |row| {
+                Ok(ToolGroup {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| e.to_string())?;
         Ok(Snapshot {
+            groups,
             installed,
             tasks,
             settings: serde_json::from_str(&settings).map_err(|error| error.to_string())?,
@@ -367,6 +399,111 @@ impl Store {
             .map_err(|error| error.to_string())?;
         self.snapshot()
     }
+
+    fn group_name(&self, value: &str, except_id: Option<&str>) -> Result<String> {
+        let name = value.trim();
+        if name.is_empty() || name.chars().count() > 40 || name.chars().any(char::is_control) {
+            return Err("分组名称需为 1–40 个字符，且不能包含控制字符".into());
+        }
+        let duplicate: bool = self
+            .connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM groups WHERE name = ?1 AND (?2 IS NULL OR id != ?2))",
+                params![name, except_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if duplicate || ["全部工具", "未分组"].contains(&name) {
+            return Err("分组名称已存在或为保留名称".into());
+        }
+        Ok(name.into())
+    }
+
+    pub fn create_group(&mut self, name: &str) -> Result<Snapshot> {
+        let count: i64 = self
+            .connection
+            .query_row("SELECT COUNT(*) FROM groups", [], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        if count >= 100 {
+            return Err("最多创建 100 个分组".into());
+        }
+        let name = self.group_name(name, None)?;
+        self.connection
+            .execute(
+                "INSERT INTO groups (id, name) VALUES (?1, ?2)",
+                params![Uuid::new_v4().to_string(), name],
+            )
+            .map_err(|e| e.to_string())?;
+        self.snapshot()
+    }
+
+    pub fn rename_group(&mut self, id: &str, name: &str) -> Result<Snapshot> {
+        let name = self.group_name(name, Some(id))?;
+        let changed = self
+            .connection
+            .execute(
+                "UPDATE groups SET name = ?1 WHERE id = ?2",
+                params![name, id],
+            )
+            .map_err(|e| e.to_string())?;
+        if changed == 0 {
+            return Err("分组不存在".into());
+        }
+        self.snapshot()
+    }
+
+    pub fn delete_group(&mut self, id: &str) -> Result<Snapshot> {
+        let changed = self
+            .connection
+            .execute("DELETE FROM groups WHERE id = ?1", [id])
+            .map_err(|e| e.to_string())?;
+        if changed == 0 {
+            return Err("分组不存在".into());
+        }
+        self.snapshot()
+    }
+
+    pub fn set_tool_group(&mut self, ids: &[String], group_id: Option<&str>) -> Result<Snapshot> {
+        if ids.is_empty() || ids.len() > 2000 {
+            return Err("请选择 1–2000 个工具".into());
+        }
+        let tx = self.connection.transaction().map_err(|e| e.to_string())?;
+        if let Some(id) = group_id {
+            let exists: bool = tx
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM groups WHERE id = ?1)",
+                    [id],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            if !exists {
+                return Err("分组不存在".into());
+            }
+        }
+        for id in ids {
+            let exists: bool = tx
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM tools WHERE id = ?1)",
+                    [id],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            if !exists {
+                return Err("请先安装工具".into());
+            }
+            tx.execute("DELETE FROM tool_groups WHERE tool_id = ?1", [id])
+                .map_err(|e| e.to_string())?;
+            if let Some(group) = group_id {
+                tx.execute(
+                    "INSERT INTO tool_groups (tool_id, group_id) VALUES (?1, ?2)",
+                    params![id, group],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
+        tx.commit().map_err(|e| e.to_string())?;
+        self.snapshot()
+    }
 }
 
 #[cfg(test)]
@@ -443,6 +580,94 @@ mod tests {
         {
             let store = Store::open(&path).unwrap();
             assert_eq!(store.snapshot().unwrap().installed.len(), 2);
+        }
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn groups_validate_names_and_move_atomically() {
+        let mut store = store();
+        let group = store.create_group("  开发  ").unwrap().groups.remove(0);
+        assert_eq!(group.name, "开发");
+        for name in ["", "  ", "开发", "全部工具", "未分组", "a\nb"] {
+            assert!(store.create_group(name).is_err());
+        }
+        assert!(store.create_group(&"x".repeat(41)).is_err());
+        assert!(store.rename_group("missing", "新名称").is_err());
+        assert!(store.delete_group("missing").is_err());
+        store.rename_group(&group.id, "开发").unwrap();
+        let ids = vec!["json".into(), "base64".into()];
+        store.set_tool_group(&ids, Some(&group.id)).unwrap();
+        assert!(store.set_tool_group(&[], None).is_err());
+        assert!(store.set_tool_group(&ids, Some("missing")).is_err());
+        assert!(store
+            .set_tool_group(&["json".into(), "missing".into()], None)
+            .is_err());
+        assert_eq!(
+            store
+                .snapshot()
+                .unwrap()
+                .installed
+                .iter()
+                .filter(|tool| tool.group_id.as_deref() == Some(&group.id))
+                .count(),
+            2
+        );
+        store.rename_group(&group.id, "常用").unwrap();
+        store.enabled("json", false).unwrap();
+        let state = store.delete_group(&group.id).unwrap();
+        assert_eq!(state.installed.len(), 3);
+        assert!(state.groups.is_empty());
+        assert!(state.installed.iter().all(|tool| tool.group_id.is_none()));
+        let json = state
+            .installed
+            .iter()
+            .find(|tool| tool.id == "json")
+            .unwrap();
+        assert!(json.favorite);
+        assert!(!json.enabled);
+    }
+
+    #[test]
+    fn groups_migrate_legacy_database_and_survive_restart() {
+        let path = std::env::temp_dir().join(format!("xtools-groups-{}.sqlite", Uuid::new_v4()));
+        {
+            let mut store = Store::open(&path).unwrap();
+            store.uninstall("timestamp").unwrap();
+            store
+                .connection
+                .execute_batch("DROP TABLE tool_groups; DROP TABLE groups;")
+                .unwrap();
+        }
+        let group_id;
+        {
+            let mut store = Store::open(&path).unwrap();
+            assert_eq!(store.snapshot().unwrap().installed.len(), 2);
+            assert!(store.snapshot().unwrap().groups.is_empty());
+            group_id = store.create_group("常用").unwrap().groups.remove(0).id;
+            store
+                .set_tool_group(&["json".into(), "base64".into()], Some(&group_id))
+                .unwrap();
+        }
+        {
+            let mut store = Store::open(&path).unwrap();
+            assert_eq!(store.snapshot().unwrap().groups[0].name, "常用");
+            assert!(store
+                .snapshot()
+                .unwrap()
+                .installed
+                .iter()
+                .all(|tool| tool.group_id.as_deref() == Some(&group_id)));
+            store.uninstall("base64").unwrap();
+            let state = store.install("base64").unwrap();
+            assert!(state
+                .installed
+                .iter()
+                .find(|tool| tool.id == "base64")
+                .unwrap()
+                .group_id
+                .is_none());
+            assert_eq!(state.groups.len(), 1);
         }
         std::fs::remove_file(path).unwrap();
     }

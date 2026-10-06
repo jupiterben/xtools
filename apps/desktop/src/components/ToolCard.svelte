@@ -2,23 +2,29 @@
   import { ArrowRight, Download, Info, LoaderCircle, Star, Trash2 } from 'lucide-svelte';
   import type { InstalledTool, ToolManifest } from '@xtools/tool-sdk';
   import { toolIcons } from '../lib/icons';
-  let { tool, installed, busy = false, locked = false, manage = false, onopen, oninstall, onfavorite, ondetail, onenabled, onuninstall }: {
+  let { tool, installed, busy = false, locked = false, manage = false, selected = false, groupName, onselect, onopen, oninstall, onfavorite, ondetail, onenabled, onuninstall }: {
     tool: ToolManifest; installed?: InstalledTool; busy?: boolean; locked?: boolean; manage?: boolean;
     onopen: () => void; oninstall: () => void; onfavorite: () => void; ondetail: () => void;
     onenabled: () => void; onuninstall: () => void;
+    selected?: boolean; groupName?: string; onselect: () => void;
   } = $props();
   const Icon = $derived(toolIcons[tool.id]);
 </script>
 
-<article class="tool-card" class:managing={manage} data-testid={`card-${tool.id}`}>
+<article class="tool-card" class:managing={manage} class:selected={manage && selected} data-testid={`card-${tool.id}`}>
   <button id={`open-${tool.id}`} class="tool-main" onclick={installed ? onopen : ondetail}
     disabled={locked || !!(installed && !installed.enabled)}
     aria-label={installed ? `打开${tool.name}` : `查看${tool.name}详情`}>
-    <span class="tool-icon {tool.color}"><Icon size={23} strokeWidth={1.7} /></span>
-    <span class="tool-copy"><strong>{tool.name}{#if installed && !installed.enabled}<small class="disabled-label">已停用</small>{/if}</strong><span>{tool.description}</span></span>
-    {#if installed && !manage}<ArrowRight size={16} class="open-arrow" />{/if}
+    <span class="tool-icon {tool.color}"><Icon size={19} strokeWidth={1.7} /></span>
+    <span class="tool-copy"><strong>{tool.name}{#if installed && !installed.enabled}<small class="disabled-label">已停用</small>{/if}</strong><span title={tool.description}>{tool.description}</span></span>
+    {#if installed && !manage}<ArrowRight size={14} class="open-arrow" />{/if}
   </button>
   <div class="tool-actions">
+    {#if manage}
+      <label class="tool-selection" title={`选择${tool.name}`}><input type="checkbox" aria-label={`选择${tool.name}`} checked={selected} disabled={locked} onchange={onselect} /></label>
+    {:else}
+      <span class="tool-category" title={groupName ?? tool.category}>{groupName ?? tool.category}</span>
+    {/if}
     {#if manage && installed}
       <label class="toggle" title={installed.enabled ? '停用工具' : '启用工具'}>
         <input type="checkbox" aria-label={`启用${tool.name}`} checked={installed.enabled} disabled={locked} onchange={onenabled} /><span></span>

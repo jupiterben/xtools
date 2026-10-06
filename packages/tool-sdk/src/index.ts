@@ -21,7 +21,9 @@ export interface InstalledTool {
   favorite: boolean;
   enabled: boolean;
   manifest?: ToolManifest;
+  groupId?: string | null;
 }
+export interface ToolGroup { id: string; name: string }
 export interface MarketRelease {
   manifest: ToolManifest;
   apiVersion: 1;
@@ -44,11 +46,16 @@ export interface Settings {
   confirmUninstall: boolean;
 }
 export interface Snapshot {
+  groups: ToolGroup[];
   installed: InstalledTool[];
   tasks: TaskRecord[];
   settings: Settings;
 }
 export interface HostBridge {
+  createGroup(name: string): Promise<Snapshot>;
+  renameGroup(id: string, name: string): Promise<Snapshot>;
+  deleteGroup(id: string): Promise<Snapshot>;
+  setToolGroup(ids: ToolId[], groupId: string | null): Promise<Snapshot>;
   snapshot(): Promise<Snapshot>;
   install(id: ToolId): Promise<Snapshot>;
   uninstall(id: ToolId): Promise<Snapshot>;

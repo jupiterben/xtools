@@ -3,9 +3,11 @@ import { openDB, type DBSchema } from 'idb';
 import { defaultToolIds, getTool } from '@xtools/tool-manifest';
 import type { HostBridge, Settings, Snapshot, ToolId } from '@xtools/tool-sdk';
 import { downloadTool } from './market';
+import { assignToolGroup, groupName } from './groups';
 
 export const desktopMode = isTauri();
 const emptySnapshot = (): Snapshot => ({
+  groups: [],
   installed: [],
   tasks: [],
   settings: { theme: 'light', confirmUninstall: true },
@@ -45,7 +47,14 @@ function browserBridge(): HostBridge {
   }
   async function initialize() {
     const db = await database;
-    if (await db.get('state', 'app')) return;
+    const migration = db.transaction('state', 'readwrite');
+    const existing = await migration.store.get('app');
+    if (existing && !existing.groups) {
+      existing.groups = [];
+      await migration.store.put(existing, 'app');
+    }
+    await migration.done;
+    if (existing) return;
     const bundle = await officialPackage();
     const tx = db.transaction(['state', 'packages'], 'readwrite');
     if (!await tx.objectStore('state').get('app')) {
@@ -71,6 +80,21 @@ function browserBridge(): HostBridge {
   }
 
   return {
+    createGroup: (name) => mutate((state) => {
+      if (state.groups.length >= 100) throw new Error('最多创建 100 个分组');
+      state.groups.push({ id: crypto.randomUUID(), name: groupName(name, state.groups) });
+    }),
+    renameGroup: (id, name) => mutate((state) => {
+      const group = state.groups.find((item) => item.id === id);
+      if (!group) throw new Error('分组不存在');
+      group.name = groupName(name, state.groups, id);
+    }),
+    deleteGroup: (id) => mutate((state) => {
+      if (!state.groups.some((group) => group.id === id)) throw new Error('分组不存在');
+      state.groups = state.groups.filter((group) => group.id !== id);
+      for (const tool of state.installed) if (tool.groupId === id) tool.groupId = null;
+    }),
+    setToolGroup: (ids, groupId) => mutate((state) => assignToolGroup(state, ids, groupId)),
     async snapshot() {
       await ready();
       return (await (await database).get('state', 'app'))!;
@@ -144,6 +168,10 @@ function browserBridge(): HostBridge {
 
 function tauriBridge(): HostBridge {
   return {
+    createGroup: (name) => invoke('create_group', { name }),
+    renameGroup: (id, name) => invoke('rename_group', { id, name }),
+    deleteGroup: (id) => invoke('delete_group', { id }),
+    setToolGroup: (ids, groupId) => invoke('set_tool_group', { ids, groupId }),
     snapshot: () => invoke('snapshot'),
     install: async (id) => {
       const { html, envelope } = await downloadTool(id);

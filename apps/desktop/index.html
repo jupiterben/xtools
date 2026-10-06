@@ -6,6 +6,48 @@
     <meta name="theme-color" content="#f8faf9" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>XTools · 开发者工具箱</title>
+    <style>
+      html { background: #ffffff; }
+      body { margin: 0; }
+      #startup { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 16px; padding: 24px; box-sizing: border-box; background: #ffffff; color: #262c30; font: 14px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; text-align: center; }
+      #startup img { border-radius: 8px; }
+      #startup strong { font-size: 22px; }
+      #startup p { margin: 0; color: #687179; }
+      #startup button { padding: 8px 16px; border: 1px solid #e7e9ec; border-radius: 5px; background: #f5f6f7; color: inherit; font: inherit; cursor: pointer; }
+      .startup-progress { width: 96px; height: 3px; background: #e7e9ec; overflow: hidden; }
+      .startup-progress::after { content: ""; display: block; width: 40%; height: 100%; background: #257257; animation: startup-progress 1.2s ease-in-out infinite alternate; }
+      @keyframes startup-progress { to { transform: translateX(150%); } }
+      @media (prefers-reduced-motion: reduce) { .startup-progress::after { animation: none; } }
+    </style>
   </head>
-  <body><div id="app"></div><script type="module" src="/src/main.ts"></script></body>
+  <body>
+    <div id="startup" role="status" aria-live="polite">
+      <img src="/favicon.png" width="48" height="48" alt="" />
+      <strong>XTools</strong>
+      <p id="startup-message">正在启动...</p>
+      <div class="startup-progress" aria-hidden="true"></div>
+      <button id="startup-retry" type="button" hidden onclick="window.location.reload()">重新加载</button>
+    </div>
+    <div id="app"></div>
+    <script>
+      (() => {
+        const startup = document.getElementById('startup');
+        const timer = setTimeout(() => {
+          if (!startup.isConnected) return;
+          document.getElementById('startup-message').textContent = '启动时间较长，请稍候或重新加载';
+          document.getElementById('startup-retry').hidden = false;
+        }, 15000);
+        window.addEventListener('xtools:mounted', () => {
+          clearTimeout(timer);
+          startup.remove();
+        }, { once: true });
+        window.addEventListener('xtools:startup-error', () => {
+          clearTimeout(timer);
+          document.getElementById('startup-message').textContent = '启动失败，请重新加载';
+          document.getElementById('startup-retry').hidden = false;
+        }, { once: true });
+      })();
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>

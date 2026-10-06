@@ -222,13 +222,13 @@ test('market category and detail views, safe uninstall cancellation', async ({ p
 
 test('card grids, market and management fit narrow and desktop windows', async ({ page }) => {
   await ready(page);
-  for (const width of [320, 390, 600, 768, 1440]) {
+  for (const [width, expectedColumns] of [[320, 1], [390, 1], [520, 2], [600, 2], [768, 3], [1024, 4], [1320, 5], [1440, 5], [1920, 6]]) {
     await page.setViewportSize({ width, height: 900 });
     await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '我的工具' }).click();
     await expect(page.getByTestId('card-json')).toBeVisible();
     const columns = await page.locator('.tool-grid').evaluate((grid) =>
       getComputedStyle(grid).gridTemplateColumns.split(' ').length);
-    expect(columns).toBe(width <= 520 ? 1 : width <= 640 ? 2 : 3);
+    expect(columns).toBe(expectedColumns);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `.logs/ux-library-${width}.png`, fullPage: true });
     await page.getByRole('button', { name: '管理', exact: true }).click();
@@ -244,5 +244,100 @@ test('card grids, market and management fit narrow and desktop windows', async (
     }));
     expect(overlapping).toBe(false);
     await page.screenshot({ path: `.logs/ux-market-${width}.png`, fullPage: true });
+  }
+});
+
+test('compact grid fits a large library and keeps card geometry stable', async ({ page }) => {
+  await ready(page);
+  const envelope = JSON.parse(await readFile('tests/fixtures/market/catalog.json', 'utf8'));
+  const { releases } = JSON.parse(envelope.payload);
+  await page.evaluate(async (manifests) => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('xtools-v1', 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('state', 'readwrite');
+        const store = tx.objectStore('state');
+        const stateRequest = store.get('app');
+        stateRequest.onsuccess = () => {
+          const state = stateRequest.result;
+          state.installed = Array.from({ length: 36 }, (_, index) => {
+            const original = manifests[index % manifests.length];
+            const manifest = { ...original, id: `${original.id}-fixture-${index}`, name: `${original.name} ${index + 1}` };
+            return { id: manifest.id, version: manifest.version, manifest, installedAt: index, lastOpenedAt: null, favorite: false, enabled: true };
+          });
+          store.put(state, 'app');
+        };
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      };
+    });
+  }, releases.map((release: { manifest: Record<string, unknown> }) => release.manifest));
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await page.reload();
+  await expect(page.locator('.tool-card')).toHaveCount(36);
+  const geometry = () => page.locator('.tool-card').evaluateAll((cards) => cards.map((card) => {
+    const { x, y, width, height, bottom } = card.getBoundingClientRect();
+    return { x, y, width, height, bottom };
+  }));
+  const before = await geometry();
+  expect(before.filter((card) => card.y >= 0 && card.bottom <= 900).length).toBeGreaterThanOrEqual(20);
+  expect(Math.max(...before.map((card) => card.height))).toBeLessThanOrEqual(140);
+  await page.locator('.tool-main').first().hover();
+  expect(await geometry()).toEqual(before);
+  await page.screenshot({ path: '.logs/density-library-36-light.png' });
+  await page.getByRole('button', { name: '管理', exact: true }).click();
+  expect((await geometry()).map(({ width, height }) => ({ width, height }))).toEqual(before.map(({ width, height }) => ({ width, height })));
+  await page.locator('.tool-actions .toggle input').first().uncheck();
+  await expect(page.locator('.tool-main').first()).toBeDisabled();
+  await page.getByRole('button', { name: '完成', exact: true }).click();
+  await page.getByRole('navigation', { name: '应用导航' }).getByRole('button', { name: '设置' }).click();
+  await page.getByRole('button', { name: '深色', exact: true }).click();
+  await page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '我的工具' }).click();
+  await page.screenshot({ path: '.logs/density-library-36-dark.png' });
+  await page.getByLabel('搜索工具').fill('UUID');
+  await expect(page.locator('.tool-card')).toHaveCount(4);
+  await page.getByRole('button', { name: '清除搜索' }).click();
+  await expect(page.locator('.tool-card')).toHaveCount(36);
+});
+
+test('long names wrap and full descriptions remain available in compact cards', async ({ page }) => {
+  await ready(page);
+  const name = 'VeryLongUnbrokenToolName'.repeat(3);
+  const description = '完整工具描述，包含用途和处理限制。'.repeat(20);
+  const envelope = JSON.parse(await readFile('tests/fixtures/market/catalog.json', 'utf8'));
+  const manifest = { ...JSON.parse(envelope.payload).releases[0].manifest, name, description };
+  await page.evaluate(async (manifest) => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('xtools-v1', 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('state', 'readwrite');
+        const store = tx.objectStore('state');
+        const stateRequest = store.get('app');
+        stateRequest.onsuccess = () => {
+          const state = stateRequest.result;
+          state.installed[0].manifest = { ...manifest, id: state.installed[0].id };
+          store.put(state, 'app');
+        };
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      };
+    });
+  }, manifest);
+  await page.reload();
+  for (const width of [320, 520, 768, 1320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.locator('.tool-copy strong').first()).toHaveText(name);
+    expect(await page.locator('.tool-card').first().evaluate((card) => {
+      return [...card.querySelectorAll('.tool-copy, strong, .tool-actions')].every((element) =>
+        element.scrollWidth <= element.clientWidth);
+    })).toBe(true);
+    await page.getByRole('button', { name: `${name}详情`, exact: true }).click();
+    await expect(page.locator('.detail-description')).toHaveText(description);
+    expect(await page.getByRole('dialog').evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
+    await page.keyboard.press('Escape');
   }
 });
